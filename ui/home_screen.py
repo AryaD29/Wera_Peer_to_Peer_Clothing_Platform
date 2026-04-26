@@ -224,9 +224,10 @@ class HomeScreen(ctk.CTkFrame):
         img_frame.pack(padx=12, pady=(12, 0))
         img_frame.pack_propagate(False)
 
-        if listing.image_path and os.path.exists(listing.image_path):
+        first_img_path = listing.image_path.split(",")[0] if listing.image_path else ""
+        if first_img_path and os.path.exists(first_img_path):
             try:
-                pil_img = Image.open(listing.image_path)
+                pil_img = Image.open(first_img_path)
                 pil_img.thumbnail((220, 200))
                 ctk_img = ctk.CTkImage(light_image=pil_img, size=(220, 200))
                 ctk.CTkLabel(img_frame, image=ctk_img, text="").place(
@@ -436,7 +437,7 @@ class HomeScreen(ctk.CTkFrame):
     # SELL / SWAP TAB  (completely restructured)
     # ═══════════════════════════════════════════════════════════
     def _build_sell(self):
-        self.selected_image_path = None
+        self.selected_image_paths = []
         # mode-section widget refs (reset in _rebuild_mode_section)
         self.s_accepts_money  = ctk.StringVar(value="No")
         self.s_price_entry    = None
@@ -541,22 +542,26 @@ class HomeScreen(ctk.CTkFrame):
         # ── Photo ─────────────────────────────────────────────
         self._sell_divider(form, "📷  Photo")
 
-        self.img_preview = ctk.CTkFrame(form, fg_color=LIGHT_PURPLE,
+        self.img_preview = ctk.CTkScrollableFrame(form, orientation="horizontal", fg_color=LIGHT_PURPLE,
                                         width=440, height=200, corner_radius=14)
         self.img_preview.pack(pady=6)
-        self.img_preview.pack_propagate(False)
+        
+        self._refresh_image_preview()
 
-        self.img_preview_label = ctk.CTkLabel(
-            self.img_preview, text="📷\nNo image selected",
-            font=FONTS["body"], text_color=MUTED_PURPLE, justify="center")
-        self.img_preview_label.place(relx=0.5, rely=0.5, anchor="center")
-
-        ctk.CTkButton(form, text="Upload Photo 📎", width=440, height=42,
+        btn_row = ctk.CTkFrame(form, fg_color="transparent")
+        btn_row.pack(pady=(4, 8))
+        
+        ctk.CTkButton(btn_row, text="Upload Photo 📎", width=215, height=42,
                       fg_color="transparent",
                       border_width=2, border_color=DEEP_PURPLE,
                       text_color=DEEP_PURPLE, hover_color=LIGHT_PURPLE,
                       font=FONTS["button"], corner_radius=12,
-                      command=self._pick_image).pack(pady=(4, 8))
+                      command=self._pick_image).pack(side="left", padx=5)
+                      
+        ctk.CTkButton(btn_row, text="Scan for cloth grade 📸", width=215, height=42,
+                      fg_color=ELECTRIC_BLUE, hover_color="#2C1FBF",
+                      text_color=WHITE, font=FONTS["button"], corner_radius=12,
+                      command=self._open_camera).pack(side="left", padx=5)
 
         # ── Feedback + submit ─────────────────────────────────
         self.s_feedback = ctk.CTkLabel(form, text="",
@@ -691,24 +696,63 @@ class HomeScreen(ctk.CTkFrame):
         cloth_frame.pack(fill="x")   # visible by default
 
     # ── Image pick ────────────────────────────────────────────
+    def _refresh_image_preview(self):
+        for w in self.img_preview.winfo_children():
+            w.destroy()
+            
+        if not self.selected_image_paths:
+            lbl = ctk.CTkLabel(
+                self.img_preview, text="📷\nNo image selected",
+                font=FONTS["body"], text_color=MUTED_PURPLE, justify="center")
+            lbl.pack(expand=True, fill="both", pady=70)
+            return
+            
+        for path in self.selected_image_paths:
+            try:
+                pil_img = Image.open(path)
+                pil_img.thumbnail((200, 200))
+                ctk_img = ctk.CTkImage(light_image=pil_img, size=(200, 200))
+                
+                frame = ctk.CTkFrame(self.img_preview, fg_color="transparent")
+                frame.pack(side="left", padx=5)
+                
+                lbl = ctk.CTkLabel(frame, image=ctk_img, text="")
+                lbl.image = ctk_img
+                lbl.pack()
+            except Exception:
+                pass
+
     def _pick_image(self):
         import shutil
         from tkinter import filedialog
-        path = filedialog.askopenfilename(
-            title="Select clothing photo",
+        paths = filedialog.askopenfilenames(
+            title="Select clothing photos",
             filetypes=[("Image files", "*.jpg *.jpeg *.png *.webp")])
-        if not path:
+        if not paths:
             return
-        filename = f"{self.user.id}_{os.path.basename(path)}"
-        dest = os.path.join(UPLOAD_DIR, filename)
-        shutil.copy2(path, dest)
-        self.selected_image_path = dest
+            
+        for path in paths:
+            filename = f"{self.user.id}_{os.path.basename(path)}"
+            dest = os.path.join(UPLOAD_DIR, filename)
+            shutil.copy2(path, dest)
+            if dest not in self.selected_image_paths:
+                self.selected_image_paths.append(dest)
+                
+        self._refresh_image_preview()
 
-        pil_img = Image.open(dest)
-        pil_img.thumbnail((440, 200))
-        ctk_img = ctk.CTkImage(light_image=pil_img, size=(440, 200))
-        self.img_preview_label.configure(image=ctk_img, text="")
-        self.img_preview_label.image = ctk_img
+    def _open_camera(self):
+        from ui.camera_popup import CameraPopup
+        def on_capture(frame):
+            from ui.analysis_screen import AnalysisScreen
+            def on_complete(path, condition):
+                self.selected_image_paths.append(path)
+                self._refresh_image_preview()
+                self.s_condition.set(condition)
+                self._update_pts_preview()
+
+            AnalysisScreen(self, frame, on_complete)
+
+        CameraPopup(self, on_capture)
 
     # ── Submit listing ────────────────────────────────────────
     def _submit_listing(self):
@@ -765,15 +809,15 @@ class HomeScreen(ctk.CTkFrame):
             price=price,
             swap_type=swap_type,
             swap_condition=swap_condition,
-            image_path=self.selected_image_path or "",
+            image_path=",".join(self.selected_image_paths) if self.selected_image_paths else "",
         )
 
         self.s_feedback.configure(text="✅ Item listed successfully!",
                                   text_color=ELECTRIC_BLUE)
         for e in [self.s_title, self.s_material, self.s_og_price]:
             e.delete(0, "end")
-        self.selected_image_path = None
-        self.img_preview_label.configure(image=None, text="📷\nNo image selected")
+        self.selected_image_paths = []
+        self._refresh_image_preview()
         self._pts_preview.configure(
             text="💎  Points Value: fill in the 3 fields above")
 
@@ -802,9 +846,10 @@ class HomeScreen(ctk.CTkFrame):
             thumb.pack(side="left", padx=14, pady=14)
             thumb.pack_propagate(False)
 
-            if listing.image_path and os.path.exists(listing.image_path):
+            first_img_path = listing.image_path.split(",")[0] if listing.image_path else ""
+            if first_img_path and os.path.exists(first_img_path):
                 try:
-                    pil_img = Image.open(listing.image_path)
+                    pil_img = Image.open(first_img_path)
                     pil_img.thumbnail((80, 80))
                     ctk_img = ctk.CTkImage(light_image=pil_img, size=(80, 80))
                     ctk.CTkLabel(thumb, image=ctk_img, text="").place(

@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from database.models import Base
 
-DB_URL = "mysql+pymysql://root:root1234@localhost:3306/wera_db"
+DB_URL = "sqlite:///wera.db"
 
 engine = create_engine(
     DB_URL,

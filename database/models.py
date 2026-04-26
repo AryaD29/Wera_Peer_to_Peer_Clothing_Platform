@@ -54,7 +54,7 @@ class Listing(Base):
     swap_condition = Column(String(300))                   # what cloth the seller wants
 
     # ──────────────────────────────────────────────────────────
-    image_path = Column(String(500))
+    image_path = Column(String(2000))
     status     = Column(String(30), default="active")
     created_at = Column(DateTime,   default=datetime.utcnow)
 
