@@ -50,21 +50,33 @@ class ListingDetailScreen(ctk.CTkToplevel):
         scroll.grid_columnconfigure(1, weight=3)
 
         # ── Left: image ───────────────────────────────────────
-        img_frame = ctk.CTkFrame(scroll, fg_color=LIGHT_PURPLE,
-                                 width=280, height=320, corner_radius=18)
-        img_frame.grid(row=0, column=0, padx=(0, 16), pady=8, sticky="n")
-        img_frame.pack_propagate(False)
+        img_scroll = ctk.CTkScrollableFrame(scroll, fg_color="transparent", width=290, height=400)
+        img_scroll.grid(row=0, column=0, padx=(0, 16), pady=8, sticky="n")
 
-        if self.listing.image_path and os.path.exists(self.listing.image_path):
-            try:
-                pil = Image.open(self.listing.image_path)
-                pil.thumbnail((280, 320))
-                ctk_img = ctk.CTkImage(light_image=pil, size=(280, 320))
-                ctk.CTkLabel(img_frame, image=ctk_img, text="").place(
-                    relx=0.5, rely=0.5, anchor="center")
-            except Exception:
-                self._placeholder(img_frame)
+        image_paths = [p for p in (self.listing.image_path.split(",") if self.listing.image_path else []) if p]
+        
+        if image_paths:
+            for path in image_paths:
+                img_frame = ctk.CTkFrame(img_scroll, fg_color=LIGHT_PURPLE,
+                                         width=280, height=320, corner_radius=18)
+                img_frame.pack(pady=(0, 12))
+                img_frame.pack_propagate(False)
+                if os.path.exists(path):
+                    try:
+                        pil = Image.open(path)
+                        pil.thumbnail((280, 320))
+                        ctk_img = ctk.CTkImage(light_image=pil, size=(280, 320))
+                        ctk.CTkLabel(img_frame, image=ctk_img, text="").place(
+                            relx=0.5, rely=0.5, anchor="center")
+                    except Exception:
+                        self._placeholder(img_frame)
+                else:
+                    self._placeholder(img_frame)
         else:
+            img_frame = ctk.CTkFrame(img_scroll, fg_color=LIGHT_PURPLE,
+                                     width=280, height=320, corner_radius=18)
+            img_frame.pack()
+            img_frame.pack_propagate(False)
             self._placeholder(img_frame)
 
         # ── Wishlist heart button ─────────────────────────────
