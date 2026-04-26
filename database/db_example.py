@@ -1,15 +1,30 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from database.models import Base
 
-# Copy this file to db.py and fill in your credentials
-DB_URL = "mysql+pymysql://YOUR_USERNAME:YOUR_PASSWORD@localhost:3306/wera_db"
+DB_URL = "mysql+pymysql://root:root1234@localhost:3306/wera_db"
 
-engine = create_engine(DB_URL, echo=False, pool_pre_ping=True)
-Session = sessionmaker(bind=engine)
+engine = create_engine(
+    DB_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=1800,      # recycle connections every 30 min
+    pool_timeout=30,
+)
+
+SessionFactory = sessionmaker(bind=engine)
+ScopedSession  = scoped_session(SessionFactory)
+
 
 def init_db():
     Base.metadata.create_all(engine)
 
+
 def get_session():
-    return Session()
+    return ScopedSession()
+
+
+def close_session():
+    ScopedSession.remove()

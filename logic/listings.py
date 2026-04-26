@@ -1,5 +1,5 @@
 from sqlalchemy.orm import joinedload
-from database.db import get_session
+from database.db_example import get_session
 from database.models import Listing
 from logic.points import calculate_points
 
@@ -85,3 +85,101 @@ def delete_listing(listing_id, user_id):
     except Exception as e:
         db.rollback()
         return False
+
+def update_listing(listing_id, user_id, **fields):
+    """Update editable fields on an owned listing."""
+    from logic.points import calculate_points
+    db = get_session()
+    try:
+        listing = db.query(Listing).filter_by(
+            id=listing_id, seller_id=user_id).first()
+        if not listing:
+            return False, "Listing not found"
+        for key, val in fields.items():
+            if hasattr(listing, key):
+                setattr(listing, key, val)
+        # Recompute points if price/condition/wear/brand changed
+        listing.points_value = calculate_points(
+            listing.og_price or 0,
+            listing.condition or "Good",
+            listing.wear_label or "Few times",
+            listing.brand_tier or "No brand / Local",
+        )
+        db.commit()
+        return True, "Listing updated!"
+    except Exception as e:
+        db.rollback()
+        return False, str(e)
+
+
+def toggle_wishlist(user_id, listing_id):
+    """Add to wishlist if not saved, remove if already saved. Returns (is_saved, msg)."""
+    from database.models import Wishlist
+    db = get_session()
+    try:
+        existing = db.query(Wishlist).filter_by(
+            user_id=user_id, listing_id=listing_id).first()
+        if existing:
+            db.delete(existing)
+            db.commit()
+            return False, "Removed from wishlist"
+        db.add(Wishlist(user_id=user_id, listing_id=listing_id))
+        db.commit()
+        return True, "Saved to wishlist ❤"
+    except Exception as e:
+        db.rollback()
+        return False, str(e)
+
+
+def get_wishlist(user_id):
+    """Return all listings saved by a user."""
+    from database.models import Wishlist
+    from sqlalchemy.orm import joinedload
+    db = get_session()
+    entries = db.query(Wishlist).filter_by(user_id=user_id).all()
+    listing_ids = [e.listing_id for e in entries]
+    results = (
+        db.query(Listing)
+        .options(joinedload(Listing.seller))
+        .filter(Listing.id.in_(listing_ids))
+        .all()
+    ) if listing_ids else []
+    for l in results:
+        db.expunge(l)
+    return results
+
+
+def is_in_wishlist(user_id, listing_id):
+    from database.models import Wishlist
+    db = get_session()
+    return db.query(Wishlist).filter_by(
+        user_id=user_id, listing_id=listing_id).first() is not None
+
+
+def get_user_stats(user_id):
+    """Return dict of stats for the profile page."""
+    from database.models import Match, User as UserModel
+    db = get_session()
+    total_listings  = db.query(Listing).filter_by(seller_id=user_id).count()
+    active_listings = db.query(Listing).filter_by(
+        seller_id=user_id, status="active").count()
+    sold_listings   = db.query(Listing).filter_by(
+        seller_id=user_id, status="sold").count()
+    matches_completed = (
+        db.query(Match)
+        .join(Listing, Match.listing_id == Listing.id)
+        .filter(Listing.seller_id == user_id, Match.status == "completed")
+        .count()
+    )
+    buys_completed = db.query(Match).filter_by(
+        buyer_id=user_id, status="completed").count()
+    user = db.query(UserModel).get(user_id)
+    points = (user.points_balance or 0) if user else 0
+    return {
+        "total_listings":    total_listings,
+        "active_listings":   active_listings,
+        "sold_listings":     sold_listings,
+        "matches_completed": matches_completed,
+        "buys_completed":    buys_completed,
+        "points":            points,
+    }

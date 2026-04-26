@@ -1,8 +1,34 @@
+import re
 import customtkinter as ctk
 from ui.theme import (DEEP_PURPLE, HOT_PINK, ELECTRIC_BLUE, NEON_LIME,
                       LAVENDER, LIGHT_PURPLE, MUTED_PURPLE, WHITE,
                       DARK, LIGHT_GRAY, GRAPE, FONTS)
 from logic.auth import register as auth_register
+
+COLLEGES = {
+    "Pune": [
+        "Symbiosis Institute of Technology",
+        "College of Engineering Pune (COEP)",
+        "MIT World Peace University",
+        "Savitribai Phule Pune University",
+        "Fergusson College",
+        "Modern College of Arts, Science & Commerce",
+        "Bharati Vidyapeeth",
+        "Indira College of Engineering",
+        "Other / Working Professional",
+    ],
+    "Mumbai": [
+        "IIT Bombay",
+        "NMIMS Mumbai",
+        "St. Xavier's College Mumbai",
+        "SNDT Women's University",
+        "University of Mumbai",
+        "Narsee Monjee College",
+        "HR College of Commerce",
+        "Jai Hind College",
+        "Other / Working Professional",
+    ],
+}
 
 
 class RegisterScreen(ctk.CTkFrame):
@@ -84,10 +110,10 @@ class RegisterScreen(ctk.CTkFrame):
         ctk.CTkLabel(inner, text="Join the Wera community today",
                      font=FONTS["small"], text_color=MUTED_PURPLE).pack(pady=(0, 24))
 
-        self.name_entry    = self._field(inner, "👤  Full Name")
-        self.email_entry   = self._field(inner, "✉  Email")
-        self.college_entry = self._field(inner, "🏫  College / Company")
+        self.name_entry  = self._field(inner, "👤  Full Name")
+        self.email_entry = self._field(inner, "✉  Email")
 
+        # ── City selector ──────────────────────────────────────
         self._section_label(inner, "📍 City")
         self.city_var = ctk.StringVar(value="Pune")
         ctk.CTkSegmentedButton(
@@ -98,7 +124,26 @@ class RegisterScreen(ctk.CTkFrame):
             unselected_color=LIGHT_PURPLE,
             font=FONTS["button"],
             corner_radius=12,
+            command=self._on_city_change,
         ).pack(pady=(4, 10))
+
+        # ── College dropdown (updates when city changes) ───────
+        self._section_label(inner, "🏫 College / Company")
+        self.college_var = ctk.StringVar(value=COLLEGES["Pune"][0])
+        self.college_menu = ctk.CTkOptionMenu(
+            inner,
+            values=COLLEGES["Pune"],
+            variable=self.college_var,
+            width=320, height=46,
+            fg_color=LIGHT_PURPLE,
+            button_color=DEEP_PURPLE,
+            text_color=DARK,
+            dropdown_fg_color=WHITE,
+            dropdown_text_color=DARK,
+            dropdown_hover_color=LIGHT_PURPLE,
+            corner_radius=12,
+        )
+        self.college_menu.pack(pady=7)
 
         self.pass_entry = self._field(inner, "🔒  Password", show="*")
 
@@ -122,6 +167,12 @@ class RegisterScreen(ctk.CTkFrame):
                       corner_radius=14,
                       command=self.on_back).pack(pady=(10, 0))
 
+    def _on_city_change(self, city):
+        """Swap college options when user switches city."""
+        options = COLLEGES[city]
+        self.college_var.set(options[0])
+        self.college_menu.configure(values=options)
+
     def _field(self, parent, placeholder, show=None):
         kwargs = {"show": show} if show else {}
         e = ctk.CTkEntry(parent, placeholder_text=placeholder,
@@ -142,12 +193,11 @@ class RegisterScreen(ctk.CTkFrame):
                      anchor="w").pack(fill="x", pady=(4, 0))
 
     def _do_register(self):
-        # Clear previous error
         self.error_label.configure(text="")
 
         name     = self.name_entry.get().strip()
         email    = self.email_entry.get().strip()
-        college  = self.college_entry.get().strip()
+        college  = self.college_var.get()
         city     = self.city_var.get()
         password = self.pass_entry.get()
 
@@ -158,13 +208,16 @@ class RegisterScreen(ctk.CTkFrame):
             self.error_label.configure(text="⚠ Please enter your email")
             return
         if not college:
-            self.error_label.configure(text="⚠ Please enter your college / company")
+            self.error_label.configure(text="⚠ Please select your college / company")
             return
         if not password:
             self.error_label.configure(text="⚠ Please enter a password")
             return
-        if len(password) < 6:
-            self.error_label.configure(text="⚠ Password must be at least 6 characters")
+        if len(password) < 8:
+            self.error_label.configure(text="⚠ Password must be at least 8 characters")
+            return
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=~`\[\]\\\/;']", password):
+            self.error_label.configure(text="⚠ Password must include at least one special character")
             return
 
         ok, result = auth_register(name, email, password, city, college)

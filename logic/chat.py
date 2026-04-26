@@ -1,4 +1,4 @@
-from database.db import get_session
+from database.db_example import get_session
 from database.models import Message
 
 def send_message(match_id, sender_id, content):

@@ -2,12 +2,13 @@ import os
 import customtkinter as ctk
 from PIL import Image
 
+
 from ui.theme import (DEEP_PURPLE, HOT_PINK, ELECTRIC_BLUE, NEON_LIME,
                       LAVENDER, LIGHT_PURPLE, MUTED_PURPLE, WHITE,
                       DARK, LIGHT_GRAY, GRAPE, FONTS)
 from logic.listings import browse_listings
 from logic.points import calculate_points, WEAR_LABELS, BRAND_TIERS
-from database.db import get_session
+from database.db_example import get_session
 from database.models import User as UserModel
 
 UPLOAD_DIR = "assets/uploads"
@@ -60,6 +61,12 @@ class HomeScreen(ctk.CTkFrame):
                       text_color=MUTED_PURPLE, hover_color="#2D0A4E",
                       font=FONTS["small"], corner_radius=10,
                       command=self.on_logout).pack(side="right", padx=(8, 0))
+
+        ctk.CTkButton(right, text="👤 Profile", width=100, height=36,
+                      fg_color=ELECTRIC_BLUE, hover_color="#2C1FBF",
+                      text_color=WHITE, font=FONTS["small"],
+                      corner_radius=10,
+                      command=self._open_profile).pack(side="right", padx=8)
 
         ctk.CTkButton(right, text="💬 Matches & Chat",
                       width=150, height=36,
@@ -116,6 +123,8 @@ class HomeScreen(ctk.CTkFrame):
             self._build_sell()
         elif tab == "mylistings":
             self._build_mylistings()
+        elif tab == "wishlist":
+            self._build_wishlist()
 
     def _build_tabs(self):
         bar = ctk.CTkFrame(self.body, fg_color=WHITE, height=50, corner_radius=0)
@@ -123,7 +132,8 @@ class HomeScreen(ctk.CTkFrame):
         bar.pack_propagate(False)
         for key, label in [("browse", "🔍 Browse"),
                             ("sell",   "🏷 Sell / Swap"),
-                            ("mylistings", "👗 My Listings")]:
+                            ("mylistings", "👗 My Listings"),
+                            ("wishlist", "❤ Wishlist")]:
             is_active = self.active_tab == key
             ctk.CTkButton(bar, text=label, width=180, height=50,
                           fg_color=DEEP_PURPLE if is_active else WHITE,
@@ -286,12 +296,25 @@ class HomeScreen(ctk.CTkFrame):
                      font=FONTS["small"], text_color=MUTED_PURPLE).pack(
                          anchor="w", padx=14, pady=(2, 6))
 
-        ctk.CTkButton(card, text="Send Match Request 💌",
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=14, pady=(4, 14))
+
+        ctk.CTkButton(btn_row, text="👁 View Details",
                       fg_color=DEEP_PURPLE, hover_color=GRAPE,
                       text_color=WHITE, font=FONTS["small"], height=38,
                       corner_radius=12,
-                      command=lambda l=listing: self._send_match(l)).pack(
-                          fill="x", padx=14, pady=(4, 14))
+                      command=lambda l=listing: self._open_detail(l)).pack(
+                          side="left", fill="x", expand=True, padx=(0, 4))
+
+        from logic.listings import is_in_wishlist
+        saved = is_in_wishlist(self.user.id, listing.id)
+        heart = "❤" if saved else "🤍"
+        ctk.CTkButton(btn_row, text=heart, width=38, height=38,
+                      fg_color=HOT_PINK if saved else LIGHT_PURPLE,
+                      hover_color="#D4245F",
+                      text_color=WHITE if saved else HOT_PINK,
+                      font=("Outfit", 16), corner_radius=12,
+                      command=lambda l=listing: self._quick_wishlist(l)).pack(side="left")
 
     def _no_image_placeholder(self, frame):
         ctk.CTkLabel(frame, text="📷", font=("Outfit", 32),
@@ -833,7 +856,49 @@ class HomeScreen(ctk.CTkFrame):
                           fg_color="#FF2D78", hover_color="#D4245F",
                           text_color=WHITE, font=FONTS["small"], corner_radius=10,
                           command=lambda lid=listing.id: self._delete_and_refresh(
-                              lid, delete_listing)).pack(side="right", padx=16, pady=14)
+                              lid, delete_listing)).pack(side="right", padx=(4, 16), pady=14)
+
+            ctk.CTkButton(row, text="Edit ✏", width=80, height=34,
+                          fg_color=ELECTRIC_BLUE, hover_color="#2C1FBF",
+                          text_color=WHITE, font=FONTS["small"], corner_radius=10,
+                          command=lambda l=listing: self._open_edit(l)).pack(
+                              side="right", padx=4, pady=14)
+
+    def _open_profile(self):
+        from ui.profile_screen import ProfileScreen
+        ProfileScreen(self.master, user=self.user)
+
+    def _open_detail(self, listing):
+        from ui.listing_detail_screen import ListingDetailScreen
+        ListingDetailScreen(self.master, listing=listing, user=self.user,
+                            on_wishlist_toggle=lambda: self._show_tab("browse"))
+
+    def _quick_wishlist(self, listing):
+        from logic.listings import toggle_wishlist
+        toggle_wishlist(self.user.id, listing.id)
+        self._show_tab("browse")
+
+    def _open_edit(self, listing):
+        from ui.edit_listing_screen import EditListingScreen
+        EditListingScreen(self.master, listing=listing, user=self.user,
+                          on_save=lambda: self._show_tab("mylistings"))
+
+    def _build_wishlist(self):
+        from logic.listings import get_wishlist
+        scroll = ctk.CTkScrollableFrame(self.body, fg_color=LAVENDER)
+        scroll.pack(fill="both", expand=True, padx=20, pady=16)
+        listings = get_wishlist(self.user.id)
+        if not listings:
+            ctk.CTkLabel(scroll, text="🤍  Your wishlist is empty.\nHeart a listing to save it!",
+                         font=FONTS["body"], text_color=MUTED_PURPLE,
+                         justify="center").pack(pady=80)
+            return
+        scroll.grid_columnconfigure(0, weight=1)
+        scroll.grid_columnconfigure(1, weight=1)
+        scroll.grid_columnconfigure(2, weight=1)
+        for i, listing in enumerate(listings):
+            row, col = divmod(i, 3)
+            self._listing_card(scroll, listing, row, col)
 
     def _delete_and_refresh(self, listing_id, delete_fn):
         delete_fn(listing_id, self.user.id)

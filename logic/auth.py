@@ -1,5 +1,5 @@
 import bcrypt
-from database.db import get_session
+from database.db_example import get_session
 from database.models import User
 
 session_user = None
@@ -8,7 +8,7 @@ def register(name, email, password, city, college_or_company):
     db = get_session()
     try:
         if db.query(User).filter_by(email=email).first():
-            return False, "Email already registered"
+            return False, "Email already registered!"
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
         user = User(
             name=name,

@@ -86,3 +86,23 @@ class Message(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     content   = Column(String(1000), nullable=False)
     sent_at   = Column(DateTime, default=datetime.utcnow)
+
+class Wishlist(Base):
+    __tablename__ = "wishlists"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"))
+    listing_id = Column(Integer, ForeignKey("listings.id"))
+    saved_at   = Column(DateTime, default=datetime.utcnow)
+
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id          = Column(Integer, primary_key=True)
+    match_id    = Column(Integer, ForeignKey("matches.id"), unique=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"))   # buyer
+    seller_id   = Column(Integer, ForeignKey("users.id"))   # seller being rated
+    rating      = Column(Integer, nullable=False)            # 1–5
+    comment     = Column(String(500), default="")
+    created_at  = Column(DateTime, default=datetime.utcnow)

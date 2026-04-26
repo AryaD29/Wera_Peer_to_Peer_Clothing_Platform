@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from database.db import init_db
+from database.db_example import init_db
 from ui.theme import apply_theme, LAVENDER
 
 
@@ -50,7 +50,9 @@ def main():
 
     def do_logout():
         from logic.auth import logout
+        from database.db_example import close_session
         logout()
+        close_session()   # ← add this
         show_login()
 
     show_login()

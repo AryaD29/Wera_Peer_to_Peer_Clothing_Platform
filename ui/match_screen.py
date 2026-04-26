@@ -3,7 +3,7 @@ from ui.theme import (DEEP_PURPLE, HOT_PINK, ELECTRIC_BLUE, NEON_LIME,
                       LAVENDER, LIGHT_PURPLE, MUTED_PURPLE, WHITE,
                       DARK, LIGHT_GRAY, GRAPE, FONTS)
 from logic.match import get_matches_for_seller, get_matches_for_buyer, accept_match, complete_transaction
-from database.db import get_session
+from database.db_example import get_session
 from database.models import Listing, User
 
 
@@ -40,7 +40,7 @@ class MatchScreen(ctk.CTkFrame):
                      text_color=WHITE).pack(side="left", padx=8)
 
         # Points balance
-        from database.db import get_session as _gs
+        from database.db_example import get_session as _gs
         from database.models import User as _U
         try:
             db  = _gs()

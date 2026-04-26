@@ -1,5 +1,5 @@
 from sqlalchemy.orm import joinedload
-from database.db import get_session
+from database.db_example import get_session
 from database.models import Match, Listing, User
 
 
