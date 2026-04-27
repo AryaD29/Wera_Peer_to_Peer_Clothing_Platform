@@ -241,3 +241,17 @@ class MatchScreen(ctk.CTkFrame):
             w.destroy()
         MatchScreen(self.master, user=self.user,
                     on_back=self.on_back).pack(fill="both", expand=True)
+        
+from ui.reviews_panel import WriteReviewDialog
+
+ctk.CTkButton(
+    match_card,
+    text="Leave a Review",
+    command=lambda: WriteReviewDialog(
+        app,
+        match_id=match.id,
+        reviewer=current_user,
+        seller=seller_user,
+        on_success=refresh_matches
+    )
+).pack()        

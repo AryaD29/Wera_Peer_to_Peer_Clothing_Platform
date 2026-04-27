@@ -296,6 +296,7 @@ class HomeScreen(ctk.CTkFrame):
         ctk.CTkLabel(card, text=f"by {seller_name}  ·  {seller_city}",
                      font=FONTS["small"], text_color=MUTED_PURPLE).pack(
                          anchor="w", padx=14, pady=(2, 6))
+        seller_label.bind("<Button-1>", lambda e, u=seller_user: open_profile(u))
 
         btn_row = ctk.CTkFrame(card, fg_color="transparent")
         btn_row.pack(fill="x", padx=14, pady=(4, 14))
@@ -948,3 +949,13 @@ class HomeScreen(ctk.CTkFrame):
     def _delete_and_refresh(self, listing_id, delete_fn):
         delete_fn(listing_id, self.user.id)
         self._show_tab("mylistings")
+
+def open_profile(subject_user):
+    from ui.user_profile_screen import UserProfileScreen
+    clear()  # your existing clear function
+    UserProfileScreen(
+        app,
+        viewer=current_user,
+        subject=subject_user,
+        on_back=show_home
+    ).pack(fill="both", expand=True)        
